@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>Rota Inteligente</title>
+<title>Rota Inteligente Completo</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
@@ -21,7 +21,7 @@ margin:10px;
 
 /* MAPA */
 #mapa{
-height:50vh;
+height:55vh;
 width:100%;
 }
 
@@ -36,7 +36,7 @@ flex-wrap:wrap;
 
 input,select,button{
 padding:8px;
-border-radius:6px;
+border-radius:8px;
 border:none;
 }
 
@@ -50,53 +50,66 @@ cursor:pointer;
 #feed{
 padding:10px;
 display:grid;
-grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
-gap:10px;
+grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
+gap:12px;
 }
 
 .card{
 background:#1c1c1c;
-border-radius:10px;
+border-radius:12px;
 overflow:hidden;
+box-shadow:0 4px 10px rgba(0,0,0,0.4);
 }
 
 .card img{
 width:100%;
-height:160px;
+height:170px;
 object-fit:cover;
 }
 
-.card p{
-margin:5px 10px;
+.info{
+padding:10px;
 font-size:13px;
+}
+
+.like{
+color:#ff4d6d;
+cursor:pointer;
+}
+
+.comment{
+color:#00d4ff;
+cursor:pointer;
+margin-left:10px;
+}
+
+.commentBox{
+margin-top:5px;
+font-size:12px;
+color:#ccc;
 }
 </style>
 </head>
 
 <body>
 
-<h2>🗺️ Rota Inteligente</h2>
+<h2>🗺️ Rota Inteligente - :contentReference[oaicite:0]{index=0}</h2>
 
-<!-- MAPA -->
 <div id="mapa"></div>
 
-<!-- PAINEL -->
 <div id="painel">
-
-<input type="file" id="arquivo">
+<input type="file" id="file">
 <input type="text" id="bairro" placeholder="Digite o bairro">
 
 <select id="nivel">
-<option value="normal">Normal</option>
-<option value="alerta">Alerta</option>
-<option value="critico">Crítico</option>
+<option value="normal">🟢 Normal</option>
+<option value="alerta">🟡 Alerta</option>
+<option value="critico">🔴 Crítico</option>
 </select>
 
-<button onclick="publicar()">📸 Publicar</button>
-
+<button onclick="postar()">📸 Publicar</button>
 </div>
 
-<!-- FEED -->
 <div id="feed"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -106,77 +119,78 @@ font-size:13px;
 // 🌍 MAPA
 const mapa = L.map('mapa').setView([-7.351, -35.453], 13);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-attribution: 'Rota Inteligente'
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+attribution:'Rota Inteligente'
 }).addTo(mapa);
 
 // 📦 banco local
 let posts = JSON.parse(localStorage.getItem("posts")) || [];
 
 // 🚦 risco
-function calcular(nivel){
-if(nivel === "normal") return "🟢 Baixo";
-if(nivel === "alerta") return "🟠 Médio";
-return "🔴 Alto";
+function cor(nivel){
+if(nivel==="normal") return "green";
+if(nivel==="alerta") return "orange";
+return "red";
 }
 
-// 📸 publicar
-function publicar(){
+// 📸 postar
+function postar(){
 
-const arquivo = document.getElementById("arquivo").files[0];
+const file = document.getElementById("file").files[0];
 const bairro = document.getElementById("bairro").value;
 const nivel = document.getElementById("nivel").value;
 
-if(!arquivo || !bairro){
-alert("Preencha tudo");
-return;
-}
+if(!file || !bairro) return alert("Preencha tudo");
 
-const leitor = new FileReader();
+const reader = new FileReader();
 
-leitor.onload = function(e){
+reader.onload = function(e){
 
 let post = {
 img:e.target.result,
 bairro,
 nivel,
-risco:calcular(nivel),
-curtidas:0,
+likes:0,
+comentarios:[],
 data:new Date().toLocaleString(),
-lat:-7.351 + (Math.random()*0.05),
-lng:-35.453 + (Math.random()*0.05)
+lat:-7.351 + Math.random()*0.05,
+lng:-35.453 + Math.random()*0.05
 };
 
 posts.unshift(post);
-
-localStorage.setItem("posts", JSON.stringify(posts));
+localStorage.setItem("posts",JSON.stringify(posts));
 
 render();
 };
 
-leitor.readAsDataURL(arquivo);
+reader.readAsDataURL(file);
 }
 
-// ❤️ curtir
-function curtir(i){
-posts[i].curtidas++;
-localStorage.setItem("posts", JSON.stringify(posts));
+// ❤️ like
+function like(i){
+posts[i].likes++;
+localStorage.setItem("posts",JSON.stringify(posts));
 render();
 }
 
-// 📍 markers no mapa
+// 💬 comentar
+function comentar(i){
+let texto = prompt("Digite seu comentário:");
+if(texto){
+posts[i].comentarios.push(texto);
+localStorage.setItem("posts",JSON.stringify(posts));
+render();
+}
+}
+
+// 📍 mapa
 function markers(){
 posts.forEach(p=>{
 L.circleMarker([p.lat,p.lng],{
-radius:10,
-color:
-p.risco.includes("🔴") ? "red" :
-p.risco.includes("🟠") ? "orange" : "green"
+radius:9,
+color:cor(p.nivel)
 }).addTo(mapa)
-.bindPopup(`
-<b>${p.bairro}</b><br>
-${p.risco}
-`);
+.bindPopup(`📍 ${p.bairro}<br>${p.nivel}`);
 });
 }
 
@@ -188,15 +202,28 @@ document.getElementById("feed").innerHTML="";
 markers();
 
 posts.forEach((p,i)=>{
+
+let comentariosHTML = "";
+p.comentarios.forEach(c=>{
+comentariosHTML += `<div class="commentBox">💬 ${c}</div>`;
+});
+
 document.getElementById("feed").innerHTML += `
 <div class="card">
 <img src="${p.img}">
-<p>📍 Bairro: ${p.bairro}</p>
-<p>🚦 ${p.risco}</p>
-<p>🕒 ${p.data}</p>
-<p onclick="curtir(${i})">❤️ Curtidas: ${p.curtidas}</p>
+<div class="info">
+📍 ${p.bairro}<br>
+🚦 ${p.nivel}<br>
+🕒 ${p.data}<br><br>
+
+<span class="like" onclick="like(${i})">❤️ ${p.likes}</span>
+<span class="comment" onclick="comentar(${i})">💬 Comentar</span>
+
+${comentariosHTML}
+</div>
 </div>
 `;
+
 });
 }
 
